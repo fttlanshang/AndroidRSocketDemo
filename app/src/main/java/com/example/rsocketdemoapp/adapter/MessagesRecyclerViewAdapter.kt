@@ -1,5 +1,7 @@
 package com.example.rsocketdemoapp.adapter
 
+import android.os.Handler
+import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -7,15 +9,16 @@ import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.example.rsocketdemoapp.R
 import com.example.rsocketdemoapp.data.Message
-import kotlinx.serialization.json.Json
+
 
 class MessagesRecyclerViewAdapter: RecyclerView.Adapter<MessagesRecyclerViewAdapter.MessageItemViewHolder>() {
     private var messages: MutableList<Message> = mutableListOf()
 
-    fun setDataSource(items: List<Message>) {
-        messages.clear()
-        messages = items.toMutableList()
-        notifyDataSetChanged()
+    fun setDataSource(items: MutableList<Message>) {
+        messages = items
+        Handler(Looper.getMainLooper()).post(Runnable {
+            notifyDataSetChanged()
+        })
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MessageItemViewHolder {
@@ -34,7 +37,7 @@ class MessagesRecyclerViewAdapter: RecyclerView.Adapter<MessagesRecyclerViewAdap
         private var messageTextView: TextView = view.findViewById(R.id.textView_message)
 
         fun setupView(message: Message) {
-//            messageTextView.text = Json.stringify(Message.serializer(), message)
+            messageTextView.text = "${message.body}"
         }
     }
 }

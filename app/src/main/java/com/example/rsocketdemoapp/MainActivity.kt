@@ -12,7 +12,6 @@ import com.example.rsocketdemoapp.adapter.MessagesRecyclerViewAdapter
 import com.example.rsocketdemoapp.data.Message
 import io.ktor.client.HttpClient
 import io.ktor.client.features.websocket.WebSockets
-import io.ktor.util.KtorExperimentalAPI
 import io.rsocket.kotlin.RSocket
 import io.rsocket.kotlin.core.RSocketClientSupport
 import io.rsocket.kotlin.core.rSocket
@@ -23,6 +22,9 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.take
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonConfiguration
+import kotlinx.serialization.json.JsonDecodingException
 import kotlin.time.ExperimentalTime
 import kotlin.time.minutes
 import kotlin.time.seconds
@@ -31,7 +33,7 @@ class MainActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener {
 
     private lateinit var recyclerView: RecyclerView
     private lateinit var adapter: MessagesRecyclerViewAdapter
-    private var messagesList: List<Message> = listOf()
+    private var messagesList: MutableList<Message> = mutableListOf()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,14 +44,6 @@ class MainActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener {
         super.onStart()
         setupRecyclerView()
         setupSpinnerView()
-    }
-
-    @ExperimentalTime
-    override fun onResume() {
-        super.onResume()
-        runBlocking {
-            retrieveMessages()
-        }
     }
 
     private fun setupSpinnerView() {
@@ -86,19 +80,31 @@ class MainActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener {
         }
 
         //connect to some url
+        // for emulator connecting to local host, need to use 10.0.2.2
         val rSocket: RSocket = client.rSocket("ws://10.0.2.2:8080/tweetsocket")
         println("Connected to web socket")
 
         //request stream
         val requestPayload = Payload(
-                data = "{\"author\" : \"linustorvalds\"}",
+                data = "{\"author\" : \"$author\"}",
                 metadata = "tweets.by.author".length.toChar() + "tweets.by.author"
         )
         val stream: Flow<Payload> = rSocket.requestStream(requestPayload)
 
         //take 5 values and print response
         stream.take(5).collect { payload: Payload ->
-            println(payload.data.readText())
+            //{"id":"d090b7de-1da7-4010-85db-2931f651e7ee","author":"Linus Torvalds","body":"Talk is cheap. Show me the code.","date":"2003-04-02"}
+            try {
+                val data = payload.data.readText()
+                println(data)
+                val message = Json(JsonConfiguration.Stable)
+                    .parse(Message.serializer(), data)
+                messagesList.add(message)
+                println(messagesList.size)
+                adapter.setDataSource(messagesList)
+            } catch (exception: JsonDecodingException) {
+                println(exception.toString())
+            }
         }
     }
 
@@ -115,7 +121,10 @@ class MainActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener {
     override fun onItemSelected(parent: AdapterView<*>, view: View?, pos: Int, id: Long) {
         // An item was selected. You can retrieve the selected item using
         val author = parent.getItemAtPosition(pos)
-
+        messagesList.clear()
+        GlobalScope.launch {
+            retrieveMessages(author as String)
+        }
     }
 
     override fun onNothingSelected(parent: AdapterView<*>) {
