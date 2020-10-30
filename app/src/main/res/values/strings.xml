@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">RSocketDemoAPP</string>
+
+    <string-array name="authors_array">
+        <item>linustorvalds</item>
+        <item>martinfowler</item>
+        <item>robertmartin</item>
+    </string-array>
+</resources>
